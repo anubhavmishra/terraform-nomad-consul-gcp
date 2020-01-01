@@ -7,7 +7,8 @@ ${file("${path.module}/templates/nomad-server.sh")}
 ${file("${path.module}/templates/consul-server.sh")}
 EOF
 
-  vars {
+
+  vars = {
     username       = "${var.username}"
     consul_version = "${var.consul_version}"
     nomad_version  = "${var.nomad_version}"
@@ -26,7 +27,7 @@ ${file("${path.module}/templates/common/provision.sh")}
 ${file("${path.module}/templates/nomad-client.sh")}
 EOF
 
-  vars {
+  vars = {
     username       = "${var.username}"
     consul_version = "${var.consul_version}"
     nomad_version  = "${var.nomad_version}"
@@ -42,7 +43,7 @@ resource "google_compute_instance" "nomad_consul_server" {
 
   name         = "nomad-consul-${var.datacenter}-${count.index+1}"
   machine_type = "n1-standard-2"
-  zone         = "${data.google_compute_zones.available.names[0]}"
+  zone         = "${data.google_compute_zones.available.[0]}"
 
   tags = ["instance", "${var.retry_join_tag}"]
 
@@ -56,10 +57,10 @@ resource "google_compute_instance" "nomad_consul_server" {
 
   network_interface {
     network       = "default"
-    access_config = {}        # Public-facing IP
+    access_config {}        # Public-facing IP
   }
 
-  metadata {
+  metadata = {
     ssh-keys = "${var.username}:${trimspace(tls_private_key.key.public_key_openssh)} ${var.username}@livedemos.xyz"
   }
 
@@ -71,10 +72,10 @@ resource "google_compute_instance" "nomad_consul_server" {
 }
 
 resource "google_compute_instance" "nomad_client" {
-  count = "2"
+  count = "3"
 
   name         = "nomad-client-${var.datacenter}-${count.index+1}"
-  machine_type = "n1-standard-1"
+  machine_type = "n1-standard-2"
   zone         = "${data.google_compute_zones.available.names[0]}"
 
   tags = ["instance"]
@@ -89,10 +90,10 @@ resource "google_compute_instance" "nomad_client" {
 
   network_interface {
     network       = "default"
-    access_config = {}        # Public-facing IP
+    access_config {}        # Public-facing IP
   }
 
-  metadata {
+  metadata = {
     ssh-keys = "${var.username}:${trimspace(tls_private_key.key.public_key_openssh)} ${var.username}@livedemos.xyz"
   }
 
@@ -106,13 +107,13 @@ resource "google_compute_instance" "nomad_client" {
 ##### OUTPUTS #####
 
 output "nomad_consul_server_ips" {
-  value = "${google_compute_instance.nomad_consul_server.*.network_interface.0.access_config.0.assigned_nat_ip}"
+  value = "${google_compute_instance.nomad_consul_server.*.network_interface.0.access_config.0.nat_ip}"
 }
 
 output "nomad_client_ips" {
-  value = "${google_compute_instance.nomad_client.*.network_interface.0.access_config.0.assigned_nat_ip}"
+  value = "${google_compute_instance.nomad_client.*.network_interface.0.access_config.0.nat_ip}"
 }
 
 output "nomad_consul_server_ssh" {
-  value = "ssh -q -i ${path.module}/.ssh/id_rsa -o UserKnownHostsFile=/dev/null -o CheckHostIP=no -o StrictHostKeyChecking=no demo@${google_compute_instance.nomad_consul_server.0.network_interface.0.access_config.0.assigned_nat_ip} -L 4646:localhost:4646 -L 8500:localhost:8500"
+  value = "ssh -q -i ${path.module}/.ssh/id_rsa -o UserKnownHostsFile=/dev/null -o CheckHostIP=no -o StrictHostKeyChecking=no demo@${google_compute_instance.nomad_consul_server.0.network_interface.0.access_config.0.nat_ip} -L 4646:localhost:4646 -L 8500:localhost:8500"
 }

@@ -17,7 +17,7 @@ resource "tls_private_key" "key" {
 }
 
 resource "null_resource" "save-key" {
-  triggers {
+  triggers = {
     key = "${tls_private_key.key.private_key_pem}"
   }
 

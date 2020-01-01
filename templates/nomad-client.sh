@@ -7,6 +7,10 @@ apt-get update
 # Install unzip and dnsmasq
 apt-get install -y unzip dnsmasq docker.io git vim
 
+# Install Envoy
+wget https://github.com/nicholasjackson/cloud-pong/releases/download/v0.3.0/envoy -O /usr/local/bin/envoy
+chmod +x /usr/local/bin/envoy
+
 ## Setup consul
 mkdir -p /var/lib/consul
 mkdir -p /etc/consul.d
@@ -20,6 +24,27 @@ unzip consul.zip
 mv consul /usr/local/bin/consul
 rm consul.zip
 
+# Create the consul config
+mkdir -p /etc/consul/config
+
+cat << EOF > /etc/consul/config.hcl
+data_dir = "/var/lib/consul"
+log_level = "DEBUG"
+datacenter = "${datacenter}"
+bind_addr = "0.0.0.0"
+client_addr = "0.0.0.0"
+ports {
+  grpc = 8502
+}
+connect {
+  enabled = true
+}
+enable_central_service_config = true
+advertise_addr = "ADVERTISE_ADDR"
+EOF
+
+sed -i "s/ADVERTISE_ADDR/$IP_ADDRESS/" /etc/consul/config.hcl
+
 cat > consul.service <<'EOF'
 [Unit]
 Description=consul
@@ -27,12 +52,8 @@ Documentation=https://consul.io/docs/
 
 [Service]
 ExecStart=/usr/local/bin/consul agent \
-  -advertise=ADVERTISE_ADDR \
-  -datacenter=${datacenter} \
-  -bind=0.0.0.0 \
+  -config-file=/etc/consul/config.hcl \
   -retry-join "provider=gce project_name=${project_id} tag_value=${retry_join_tag}" \
-  -data-dir=/var/lib/consul \
-  -config-dir=/etc/consul.d \
   -enable-script-checks
 
 ExecReload=/bin/kill -HUP $MAINPID
@@ -42,7 +63,6 @@ LimitNOFILE=65536
 WantedBy=multi-user.target
 EOF
 
-sed -i "s/ADVERTISE_ADDR/$IP_ADDRESS/" consul.service
 mv consul.service /etc/systemd/system/consul.service
 systemctl enable consul
 systemctl start consul
@@ -108,6 +128,22 @@ WantedBy=multi-user.target
 EOF
 # Install systemd file
 mv nomad.service /etc/systemd/system/nomad.service
+
+# Configure CNI plugins
+curl -L -o cni-plugins.tgz https://github.com/containernetworking/plugins/releases/download/v0.8.3/cni-plugins-linux-amd64-v0.8.3.tgz
+sudo mkdir -p /opt/cni/bin
+sudo tar -C /opt/cni/bin -xzf cni-plugins.tgz
+
+cat > 99-bridge-network-iptables.conf <<'EOF'
+# Ensure the your Linux operating system distribution has been configured to allow container
+# traffic through the bridge network to be routed via iptables. The below configuration preserves the settings
+# Reference: https://www.nomadproject.io/guides/integrations/consul-connect/index.html#cni-plugins
+net.bridge.bridge-nf-call-arptables=1
+net.bridge.bridge-nf-call-ip6tables=1
+net.bridge.bridge-nf-call-iptables=1
+EOF
+# Copy the sysctl.d configuration file
+mv 99-bridge-network-iptables.conf /etc/sysctl.d/99-bridge-network-iptables.conf
 
 # Enable and start nomad service
 systemctl enable nomad

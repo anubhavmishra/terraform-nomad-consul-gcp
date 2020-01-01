@@ -19,6 +19,31 @@ unzip consul.zip
 mv consul /usr/local/bin/consul
 rm consul.zip
 
+
+# Create the consul config
+mkdir -p /etc/consul
+cat << EOF > /etc/consul/config.hcl
+data_dir = "/var/lib/consul"
+log_level = "DEBUG"
+datacenter = "${datacenter}"
+server = true
+bootstrap_expect = 3
+ui = true
+bind_addr = "0.0.0.0"
+client_addr = "0.0.0.0"
+ports {
+  grpc = 8502
+}
+connect {
+  enabled = true
+}
+enable_central_service_config = true
+advertise_addr = "ADVERTISE_ADDR"
+advertise_addr_wan = "ADVERTISE_ADDR"
+EOF
+
+sed -i "s/ADVERTISE_ADDR/$IP_ADDRESS/" /etc/consul/config.hcl
+
 cat > consul.service <<'EOF'
 [Unit]
 Description=consul
@@ -26,15 +51,8 @@ Documentation=https://consul.io/docs/
 
 [Service]
 ExecStart=/usr/local/bin/consul agent \
-  -advertise=ADVERTISE_ADDR \
-  -datacenter=${datacenter} \
-  -bind=0.0.0.0 \
-  -bootstrap-expect 3 \
-  -retry-join "provider=gce project_name=${project_id} tag_value=${retry_join_tag}" \
-  -client=0.0.0.0 \
-  -data-dir=/var/lib/consul \
-  -server \
-  -ui
+  -config-file=/etc/consul/config.hcl \
+  -retry-join "provider=gce project_name=${project_id} tag_value=${retry_join_tag}"
 
 ExecReload=/bin/kill -HUP $MAINPID
 LimitNOFILE=65536
@@ -43,7 +61,6 @@ LimitNOFILE=65536
 WantedBy=multi-user.target
 EOF
 
-sed -i "s/ADVERTISE_ADDR/$IP_ADDRESS/" consul.service
 mv consul.service /etc/systemd/system/consul.service
 systemctl enable consul
 systemctl start consul
