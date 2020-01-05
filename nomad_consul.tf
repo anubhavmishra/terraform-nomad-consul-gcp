@@ -43,9 +43,9 @@ resource "google_compute_instance" "nomad_consul_server" {
 
   name         = "nomad-consul-${var.datacenter}-${count.index+1}"
   machine_type = "n1-standard-2"
-  zone         = "${data.google_compute_zones.available.[0]}"
+  zone         = "${data.google_compute_zones.available.names[0]}"
 
-  tags = ["instance", "${var.retry_join_tag}"]
+  tags = ["nomad-consul-server", "${var.retry_join_tag}"]
 
   boot_disk {
     initialize_params {
@@ -71,6 +71,22 @@ resource "google_compute_instance" "nomad_consul_server" {
   }
 }
 
+module "lb" {
+  source = "github.com/anubhavmishra/terraform-google-load-balancer//modules/network-load-balancer"
+
+  name    = "nomad-consul-grid-external-ingress-lb"
+  region  = var.region
+  project = var.project_id
+
+  enable_health_check = true
+  health_check_port   = "8081"
+  health_check_path   = "/ping"
+
+  firewall_target_tags = var.nomad_client_tags
+
+  instances = google_compute_instance.nomad_client.*.self_link
+}
+
 resource "google_compute_instance" "nomad_client" {
   count = "3"
 
@@ -78,8 +94,8 @@ resource "google_compute_instance" "nomad_client" {
   machine_type = "n1-standard-2"
   zone         = "${data.google_compute_zones.available.names[0]}"
 
-  tags = ["instance"]
-
+  tags = var.nomad_client_tags
+  
   boot_disk {
     initialize_params {
       image = "${data.google_compute_image.base.self_link}"
@@ -102,6 +118,28 @@ resource "google_compute_instance" "nomad_client" {
   service_account {
     scopes = ["compute-ro"]
   }
+}
+
+resource "google_compute_firewall" "firewall" {
+  project = var.project_id
+  name    = "nomad-consul-grid-external-ingress-allow-all-http-traffic"
+  network = "default"
+
+  allow {
+    protocol = "tcp"
+    ports    = ["80"]
+  }
+
+  allow {
+    protocol = "tcp"
+    ports    = ["8081"]
+  }
+
+  # These IP ranges are required for health checks
+  source_ranges = ["0.0.0.0/0"]
+
+  # Target tags define the instances to which the rule applies
+  target_tags = var.nomad_client_tags
 }
 
 ##### OUTPUTS #####

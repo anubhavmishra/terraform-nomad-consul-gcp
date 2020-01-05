@@ -22,6 +22,10 @@ variable "nomad_version" {
   default = "0.10.2"
 }
 
+variable "nomad_client_tags" {
+  default = ["instance", "nomad-client"]
+}
+
 variable "retry_join_tag" {
   default = "consul-server"
 }
