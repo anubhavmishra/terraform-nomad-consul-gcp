@@ -110,6 +110,10 @@ client {
         "driver.raw_exec.enable" = "1"
     }
 }
+vault {
+  enabled = true
+  address = "http://vault.service.consul:8200"
+}
 EOF
 # Replace ADVERTISE_ADDR with IP address
 sed -i "s/ADVERTISE_ADDR/$IP_ADDRESS/" client.hcl
@@ -120,6 +124,7 @@ cat > nomad.service <<'EOF'
 Description=Nomad
 Documentation=https://nomadproject.io/docs/
 [Service]
+Environment="VAULT_TOKEN=root"
 ExecStart=/usr/local/bin/nomad agent -config /etc/nomad
 ExecReload=/bin/kill -HUP $MAINPID
 LimitNOFILE=65536
@@ -130,7 +135,7 @@ EOF
 mv nomad.service /etc/systemd/system/nomad.service
 
 # Configure CNI plugins
-curl -L -o cni-plugins.tgz https://github.com/containernetworking/plugins/releases/download/v0.8.3/cni-plugins-linux-amd64-v0.8.3.tgz
+curl -L -o cni-plugins.tgz https://github.com/containernetworking/plugins/releases/download/v0.9.0/cni-plugins-linux-amd64-v0.9.0.tgz
 sudo mkdir -p /opt/cni/bin
 sudo tar -C /opt/cni/bin -xzf cni-plugins.tgz
 

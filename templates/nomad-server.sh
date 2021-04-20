@@ -43,6 +43,11 @@ server {
     enabled = true
     bootstrap_expect = 3
 }
+
+vault {
+  enabled = true
+  address = "http://vault.service.consul:8200"
+}
 EOF
 # Replace ADVERTISE_ADDR with IP address
 sed -i "s/ADVERTISE_ADDR/$IP_ADDRESS/" server.hcl
@@ -55,6 +60,7 @@ Description=Nomad
 Documentation=https://nomadproject.io/docs/
 
 [Service]
+Environment="VAULT_TOKEN=root"
 ExecStart=/usr/local/bin/nomad agent -config /etc/nomad
 ExecReload=/bin/kill -HUP $MAINPID
 LimitNOFILE=65536

@@ -1,9 +1,9 @@
 variable "region" {
-  default = "asia-south1"
+  default = "us-west2"
 }
 
 variable "namespace" {
-  default = "nomad-asia-south"
+  default = "nomad-us-west-2"
 }
 
 variable "nomad_region" {
@@ -15,11 +15,15 @@ variable "datacenter" {
 }
 
 variable "consul_version" {
-  default = "1.6.2"
+  default = "1.9.5"
 }
 
 variable "nomad_version" {
-  default = "0.10.2"
+  default = "1.0.4"
+}
+
+variable "vault_version" {
+  default = "1.7.0"
 }
 
 variable "nomad_client_tags" {

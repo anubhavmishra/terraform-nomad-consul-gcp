@@ -51,7 +51,7 @@ Documentation=https://consul.io/docs/
 
 [Service]
 ExecStart=/usr/local/bin/consul agent \
-  -config-file=/etc/consul/config.hcl \
+  -config-dir=/etc/consul \
   -retry-join "provider=gce project_name=${project_id} tag_value=${retry_join_tag}"
 
 ExecReload=/bin/kill -HUP $MAINPID
